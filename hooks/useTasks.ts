@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import databaseService, { Task } from "../services/database";
 export function useTasks() {
 	const [tasks, setTasks] = useState<Task[]>([]);

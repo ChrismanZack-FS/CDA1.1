@@ -1,8 +1,9 @@
 export interface Task {
-	id: string;
+	id: number;
 	title: string;
 	description: string;
-	priority: "High" | "Medium" | "Low";
 	completed: boolean;
-	createdAt: Date;
+	priority: "low" | "medium" | "high";
+	createdAt: string;
+	updatedAt: string;
 }

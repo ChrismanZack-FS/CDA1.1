@@ -2,7 +2,7 @@ import * as SQLite from "expo-sqlite";
 import { Platform } from "react-native";
 // Types for our data
 export interface Task {
-	id?: number;
+	id: number;
 	title: string;
 	description: string;
 	completed: boolean;

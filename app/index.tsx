@@ -1,21 +1,32 @@
-import React, { useEffect } from "react";
+import { Link, useFocusEffect } from "expo-router";
+import React, { useCallback, useEffect } from "react";
 import {
-	View,
-	Text,
-	FlatList,
-	TouchableOpacity,
-	StyleSheet,
 	Alert,
+	FlatList,
+	Platform,
+	StyleSheet,
+	Text,
+	TouchableOpacity,
+	View,
 } from "react-native";
-import { Link } from "expo-router";
+import { ThemedText } from "../components/ThemedText";
+import { useBreakpoint } from "../hooks/useBreakpoint";
 import { useTasks } from "../hooks/useTasks";
-import databaseService from "../services/database";
+import databaseService, { Task } from "../services/database";
 export default function TasksScreen() {
-	const { tasks, loading, error, deleteTask, updateTask } = useTasks();
+	const { tasks, loading, error, deleteTask, updateTask, refreshTasks } =
+		useTasks();
+	const breakpoint = useBreakpoint();
+	useFocusEffect(
+		useCallback(() => {
+			refreshTasks();
+		}, [])
+	);
 	useEffect(() => {
 		// Initialize database when component mounts
 		databaseService.init().catch(console.error);
 	}, []);
+
 	const handleToggleComplete = async (id: number, completed: boolean) => {
 		try {
 			await updateTask(id, { completed: !completed });
@@ -23,7 +34,14 @@ export default function TasksScreen() {
 			Alert.alert("Error", "Failed to update task");
 		}
 	};
+
 	const handleDeleteTask = async (id: number) => {
+		if (Platform.OS === "web") {
+			if (!window.confirm("Are you sure you want to delete this task?")) return;
+			await deleteTask(id);
+			return;
+		}
+
 		Alert.alert("Delete Task", "Are you sure you want to delete this task?", [
 			{ text: "Cancel", style: "cancel" },
 			{
@@ -32,33 +50,96 @@ export default function TasksScreen() {
 				onPress: async () => {
 					try {
 						await deleteTask(id);
-					} catch (error) {
+					} catch {
 						Alert.alert("Error", "Failed to delete task");
 					}
 				},
 			},
 		]);
 	};
-	const renderTask = ({ item }) => (
+	const getPriorityColor = (priority: string) => {
+		switch (priority) {
+			case "high":
+				return "#DC2626"; // red-600
+			case "medium":
+				return "#D97706"; // yellow-600
+			case "low":
+				return "#16A34A"; // green-600
+			default:
+				return "#4B5563"; // gray-600
+		}
+	};
+
+	const getNumColumns = () => {
+		switch (breakpoint) {
+			case "xl":
+				return 3;
+			case "lg":
+				return 2;
+			default:
+				return 1;
+		}
+	};
+
+	const renderTask = ({ item }: { item: Task }) => (
 		<View style={styles.taskItem}>
 			<TouchableOpacity
-				style={styles.taskContent}
 				onPress={() => handleToggleComplete(item.id, item.completed)}
+				style={{ flex: 1 }}
 			>
-				<Text
-					style={[styles.taskTitle, item.completed && styles.completedTask]}
+				<ThemedText
+					type="defaultSemiBold"
+					style={{
+						flex: 1,
+						textDecorationLine: item.completed ? "line-through" : "none",
+						color: item.completed ? "#6B7280" : "#111827",
+					}}
 				>
 					{item.title}
-				</Text>
-				<Text style={styles.taskDescription}>{item.description}</Text>
-				<Text style={styles.taskPriority}>Priority: {item.priority}</Text>
+				</ThemedText>
+				<ThemedText
+					type="default"
+					style={{ color: "#4B5563", marginBottom: 8 }}
+				>
+					{item.description}
+				</ThemedText>
+				<ThemedText
+					type="default"
+					style={{
+						fontSize: 14,
+						fontWeight: "500",
+						textTransform: "uppercase",
+						color: getPriorityColor(item.priority),
+					}}
+				>
+					{item.priority}
+				</ThemedText>
 			</TouchableOpacity>
 
 			<View style={styles.taskActions}>
-				<TouchableOpacity onPress={() => handleDeleteTask(item.id)}>
-					<Text style={styles.deleteButton}>🗑️</Text>
-				</TouchableOpacity>
-				<Text style={styles.taskStatus}>{item.completed ? "✅" : "⭕"}</Text>
+				{/* ✅ Edit button */}
+				<Link
+					href={{
+						pathname: "/edit-task",
+						params: { id: item.id }, // pass task id to edit-task.tsx
+					}}
+					asChild
+				>
+					<TouchableOpacity style={{ padding: 4 }}>
+						<Text style={{ flex: 1 }}>✏️</Text>
+					</TouchableOpacity>
+				</Link>
+
+				<View style={styles.taskActions}>
+					<TouchableOpacity
+						onPress={() => handleDeleteTask(item.id)}
+						activeOpacity={0.6}
+						style={{ padding: 4 }}
+					>
+						<Text style={styles.deleteButton}>🗑️</Text>
+					</TouchableOpacity>
+					<Text style={styles.taskStatus}>{item.completed ? "✅" : "⭕"}</Text>
+				</View>
 			</View>
 		</View>
 	);
@@ -82,7 +163,9 @@ export default function TasksScreen() {
 				data={tasks}
 				renderItem={renderTask}
 				keyExtractor={(item) => item.id?.toString() || ""}
-				style={styles.list}
+				numColumns={getNumColumns()}
+				key={getNumColumns()} // Force re-render when columns change
+				contentContainerStyle={{ padding: 16 }}
 				ListEmptyComponent={
 					<View style={styles.emptyState}>
 						<Text style={styles.emptyText}>No tasks yet!</Text>
