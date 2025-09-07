@@ -1,5 +1,11 @@
-import { Link, useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect } from "react";
+import { Link, useFocusEffect, useNavigation } from "expo-router";
+import React, {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useState,
+} from "react";
+
 import {
 	Alert,
 	FlatList,
@@ -13,19 +19,48 @@ import { ThemedText } from "../components/ThemedText";
 import { useBreakpoint } from "../hooks/useBreakpoint";
 import { useTasks } from "../hooks/useTasks";
 import databaseService, { Task } from "../services/database";
+import { useUserPreferences } from "../hooks/useUserPreferences";
+import { Colors } from "../constants/Colors";
+
 export default function TasksScreen() {
 	const { tasks, loading, error, deleteTask, updateTask, refreshTasks } =
 		useTasks();
+	const { preferences } = useUserPreferences();
+	const [theme, setTheme] = useState<"light" | "dark">("light"); // default
 	const breakpoint = useBreakpoint();
+	const navigation = useNavigation();
+
+	useEffect(() => {
+		if (preferences.theme) setTheme(preferences.theme);
+	}, [preferences]);
+
+	// Refresh tasks when returning to this screen
 	useFocusEffect(
 		useCallback(() => {
 			refreshTasks();
 		}, [])
 	);
+
+	// Initialize database on mount
 	useEffect(() => {
-		// Initialize database when component mounts
 		databaseService.init().catch(console.error);
 	}, []);
+
+	useLayoutEffect(() => {
+		navigation.setOptions({
+			headerStyle: {
+				backgroundColor: Colors[theme].background, // header background
+			},
+			headerTintColor: Colors[theme].text, // back button & title color
+			headerRight: () => (
+				<Link href="/settings" asChild>
+					<TouchableOpacity style={{ marginRight: 15 }}>
+						<Text style={{ fontSize: 22, color: Colors[theme].text }}>⚙️</Text>
+					</TouchableOpacity>
+				</Link>
+			),
+		});
+	}, [navigation, theme]);
 
 	const handleToggleComplete = async (id: number, completed: boolean) => {
 		try {
@@ -57,6 +92,7 @@ export default function TasksScreen() {
 			},
 		]);
 	};
+
 	const getPriorityColor = (priority: string) => {
 		switch (priority) {
 			case "high":
@@ -82,7 +118,15 @@ export default function TasksScreen() {
 	};
 
 	const renderTask = ({ item }: { item: Task }) => (
-		<View style={styles.taskItem}>
+		<View
+			style={[
+				styles.taskItem,
+				{
+					backgroundColor:
+						theme === "dark" ? "#1F2937" : Colors[theme].background,
+				},
+			]}
+		>
 			<TouchableOpacity
 				onPress={() => handleToggleComplete(item.id, item.completed)}
 				style={{ flex: 1 }}
@@ -92,14 +136,14 @@ export default function TasksScreen() {
 					style={{
 						flex: 1,
 						textDecorationLine: item.completed ? "line-through" : "none",
-						color: item.completed ? "#6B7280" : "#111827",
+						color: item.completed ? Colors[theme].icon : Colors[theme].text,
 					}}
 				>
 					{item.title}
 				</ThemedText>
 				<ThemedText
 					type="default"
-					style={{ color: "#4B5563", marginBottom: 8 }}
+					style={{ color: Colors[theme].icon, marginBottom: 8 }}
 				>
 					{item.description}
 				</ThemedText>
@@ -117,11 +161,11 @@ export default function TasksScreen() {
 			</TouchableOpacity>
 
 			<View style={styles.taskActions}>
-				{/* ✅ Edit button */}
+				{/* Edit button */}
 				<Link
 					href={{
 						pathname: "/edit-task",
-						params: { id: item.id }, // pass task id to edit-task.tsx
+						params: { id: item.id },
 					}}
 					asChild
 				>
@@ -143,6 +187,7 @@ export default function TasksScreen() {
 			</View>
 		</View>
 	);
+
 	if (loading) {
 		return (
 			<View style={[styles.container, styles.centered]}>
@@ -150,6 +195,7 @@ export default function TasksScreen() {
 			</View>
 		);
 	}
+
 	if (error) {
 		return (
 			<View style={[styles.container, styles.centered]}>
@@ -157,18 +203,30 @@ export default function TasksScreen() {
 			</View>
 		);
 	}
+
 	return (
-		<View style={styles.container}>
+		<View
+			style={[styles.container, { backgroundColor: Colors[theme].background }]}
+		>
 			<FlatList
 				data={tasks}
 				renderItem={renderTask}
 				keyExtractor={(item) => item.id?.toString() || ""}
 				numColumns={getNumColumns()}
-				key={getNumColumns()} // Force re-render when columns change
+				key={getNumColumns()}
 				contentContainerStyle={{ padding: 16 }}
 				ListEmptyComponent={
 					<View style={styles.emptyState}>
-						<Text style={styles.emptyText}>No tasks yet!</Text>
+						<Text
+							style={{
+								fontSize: 18,
+								fontWeight: "bold",
+								color: Colors[theme].text,
+								marginBottom: 8,
+							}}
+						>
+							No tasks yet!
+						</Text>
 						<Text style={styles.emptySubtext}>
 							Create your first task to get started.
 						</Text>
@@ -184,21 +242,11 @@ export default function TasksScreen() {
 		</View>
 	);
 }
+
 const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		backgroundColor: "#f5f5f5",
-	},
-	centered: {
-		justifyContent: "center",
-		alignItems: "center",
-	},
-	list: {
-		flex: 1,
-		padding: 16,
-	},
+	container: { flex: 1 },
+	centered: { justifyContent: "center", alignItems: "center" },
 	taskItem: {
-		backgroundColor: "white",
 		padding: 16,
 		marginBottom: 8,
 		borderRadius: 8,
@@ -206,39 +254,9 @@ const styles = StyleSheet.create({
 		justifyContent: "space-between",
 		alignItems: "center",
 	},
-	taskContent: {
-		flex: 1,
-	},
-	taskTitle: {
-		fontSize: 16,
-		fontWeight: "bold",
-		marginBottom: 4,
-	},
-	completedTask: {
-		textDecorationLine: "line-through",
-		color: "#999",
-	},
-	taskDescription: {
-		fontSize: 14,
-		color: "#666",
-		marginBottom: 4,
-	},
-	taskPriority: {
-		fontSize: 12,
-		color: "#888",
-		textTransform: "capitalize",
-	},
-	taskActions: {
-		flexDirection: "row",
-		alignItems: "center",
-	},
-	deleteButton: {
-		fontSize: 20,
-		marginRight: 10,
-	},
-	taskStatus: {
-		fontSize: 24,
-	},
+	taskActions: { flexDirection: "row", alignItems: "center" },
+	deleteButton: { fontSize: 20, marginRight: 10 },
+	taskStatus: { fontSize: 24 },
 	addButton: {
 		backgroundColor: "#007AFF",
 		margin: 16,
@@ -246,11 +264,7 @@ const styles = StyleSheet.create({
 		borderRadius: 8,
 		alignItems: "center",
 	},
-	addButtonText: {
-		color: "white",
-		fontSize: 16,
-		fontWeight: "bold",
-	},
+	addButtonText: { color: "white", fontSize: 16, fontWeight: "bold" },
 	emptyState: {
 		flex: 1,
 		justifyContent: "center",
@@ -263,12 +277,6 @@ const styles = StyleSheet.create({
 		color: "#666",
 		marginBottom: 8,
 	},
-	emptySubtext: {
-		fontSize: 14,
-		color: "#999",
-	},
-	errorText: {
-		color: "red",
-		fontSize: 16,
-	},
+	emptySubtext: { fontSize: 14, color: "#999" },
+	errorText: { color: "red", fontSize: 16 },
 });
