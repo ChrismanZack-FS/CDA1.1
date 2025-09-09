@@ -6,7 +6,7 @@ export const createPlatformStyles = () =>
 			backgroundColor: "#f5f5f5",
 			// Web-specific: Add max width for better desktop experience
 			...(Platform.OS === "web" && {
-				maxWidth: 800,
+				maxWidth: 1200,
 				alignSelf: "center",
 				width: "100%",
 			}),

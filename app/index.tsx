@@ -14,6 +14,7 @@ import {
 	Text,
 	TouchableOpacity,
 	View,
+	ActivityIndicator,
 } from "react-native";
 import { ThemedText } from "../components/ThemedText";
 import { useBreakpoint } from "../hooks/useBreakpoint";
@@ -21,14 +22,25 @@ import { useTasks } from "../hooks/useTasks";
 import databaseService, { Task } from "../services/database";
 import { useUserPreferences } from "../hooks/useUserPreferences";
 import { Colors } from "../constants/Colors";
+import { ConnectionStatus } from "../components/ConnectionStatus";
+import { useSocket } from "../hooks/useSocket";
 
 export default function TasksScreen() {
-	const { tasks, loading, error, deleteTask, updateTask, refreshTasks } =
-		useTasks();
+	const {
+		tasks,
+		loading,
+		error,
+		deleteTask,
+		updateTask,
+		refreshTasks,
+		createTask,
+	} = useTasks();
+
 	const { preferences } = useUserPreferences();
 	const [theme, setTheme] = useState<"light" | "dark">("light"); // default
 	const breakpoint = useBreakpoint();
 	const navigation = useNavigation();
+	const { isConnected, emit } = useSocket();
 
 	useEffect(() => {
 		if (preferences.theme) setTheme(preferences.theme);
@@ -53,20 +65,45 @@ export default function TasksScreen() {
 			},
 			headerTintColor: Colors[theme].text, // back button & title color
 			headerRight: () => (
-				<Link href="/settings" asChild>
-					<TouchableOpacity style={{ marginRight: 15 }}>
-						<Text style={{ fontSize: 22, color: Colors[theme].text }}>⚙️</Text>
-					</TouchableOpacity>
-				</Link>
+				<View style={{ flexDirection: "row", alignItems: "center" }}>
+					{/* Chat Link */}
+					<Link href="/chat" asChild>
+						<TouchableOpacity style={{ marginRight: 15 }}>
+							<Text style={{ fontSize: 22, color: Colors[theme].text }}>
+								💬
+							</Text>
+						</TouchableOpacity>
+					</Link>
+
+					{/* Settings Link */}
+					<Link href="/settings" asChild>
+						<TouchableOpacity style={{ marginRight: 15 }}>
+							<Text style={{ fontSize: 22, color: Colors[theme].text }}>
+								⚙️
+							</Text>
+						</TouchableOpacity>
+					</Link>
+				</View>
 			),
 		});
 	}, [navigation, theme]);
 
 	const handleToggleComplete = async (id: number, completed: boolean) => {
 		try {
-			await updateTask(id, { completed: !completed });
+			const task = tasks.find((t) => t.id === id);
+			if (!task) return;
+			await databaseService.updateTask(id, { completed: !task.completed });
+			const updatedTask = await updateTask(id, { completed: !task.completed });
+			if (isConnected) {
+				emit("task_updated", {
+					taskId: id,
+					completed: updatedTask?.completed,
+					timestamp: new Date().toISOString(),
+				});
+			}
 		} catch (error) {
-			Alert.alert("Error", "Failed to update task");
+			console.error("Error updating task:", error);
+			Alert.alert("Error", "Failed to update task. Please try again.");
 		}
 	};
 
@@ -85,6 +122,12 @@ export default function TasksScreen() {
 				onPress: async () => {
 					try {
 						await deleteTask(id);
+						if (isConnected) {
+							emit("task_deleted", {
+								taskId: id,
+								timestamp: new Date().toISOString(),
+							});
+						}
 					} catch {
 						Alert.alert("Error", "Failed to delete task");
 					}
@@ -149,6 +192,12 @@ export default function TasksScreen() {
 				</ThemedText>
 				<ThemedText
 					type="default"
+					style={{ color: Colors[theme].icon, marginBottom: 8 }}
+				>
+					{new Date(item.createdAt).toLocaleDateString()}
+				</ThemedText>
+				<ThemedText
+					type="default"
 					style={{
 						fontSize: 14,
 						fontWeight: "500",
@@ -208,6 +257,12 @@ export default function TasksScreen() {
 		<View
 			style={[styles.container, { backgroundColor: Colors[theme].background }]}
 		>
+			{/* Connection Status */}
+			<Text
+				style={[styles.connectionStatusText, { color: Colors[theme].text }]}
+			>
+				<ConnectionStatus />
+			</Text>
 			<FlatList
 				data={tasks}
 				renderItem={renderTask}
@@ -234,6 +289,13 @@ export default function TasksScreen() {
 				}
 			/>
 
+			{isConnected && (
+				<Text className="text-green-600 dark:text-green-400">
+					{" "}
+					• Live sync enabled
+				</Text>
+			)}
+
 			<Link href="/add-task" asChild>
 				<TouchableOpacity style={styles.addButton}>
 					<Text style={styles.addButtonText}>+ Add Task</Text>
@@ -248,7 +310,7 @@ const styles = StyleSheet.create({
 	centered: { justifyContent: "center", alignItems: "center" },
 	taskItem: {
 		padding: 16,
-		marginBottom: 8,
+		margin: 8,
 		borderRadius: 8,
 		flexDirection: "row",
 		justifyContent: "space-between",
@@ -279,4 +341,9 @@ const styles = StyleSheet.create({
 	},
 	emptySubtext: { fontSize: 14, color: "#999" },
 	errorText: { color: "red", fontSize: 16 },
+	connectionStatusText: {
+		fontSize: 18,
+		fontWeight: "bold",
+		marginBottom: 8,
+	},
 });

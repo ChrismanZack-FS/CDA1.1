@@ -67,33 +67,45 @@ class DatabaseService {
 			completed: Boolean(result.completed),
 		} as Task;
 	}
-	async createTask(task: Omit<Task, "id">): Promise<Task> {
+	async createTask(task: {
+		title: string;
+		description?: string;
+		completed?: boolean;
+		priority?: Task["priority"];
+	}): Promise<Task> {
 		if (!this.db) throw new Error("Database not initialized");
+
 		const now = new Date().toISOString();
-		const taskWithTimestamps = {
-			...task,
+
+		// Fill in defaults
+		const taskWithDefaults: Task = {
+			title: task.title,
+			description: task.description ?? "",
+			completed: task.completed ?? false,
+			priority: task.priority ?? "medium",
 			createdAt: now,
 			updatedAt: now,
+			id: 0, // temporary, will be replaced after insert
 		};
+
+		// Insert into DB
 		const result = await this.db.runAsync(
-			`
-      INSERT INTO tasks (title, description, completed, priority, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `,
+			`INSERT INTO tasks (title, description, completed, priority, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?)`,
 			[
-				taskWithTimestamps.title,
-				taskWithTimestamps.description,
-				taskWithTimestamps.completed ? 1 : 0,
-				taskWithTimestamps.priority,
-				taskWithTimestamps.createdAt,
-				taskWithTimestamps.updatedAt,
+				taskWithDefaults.title,
+				taskWithDefaults.description,
+				taskWithDefaults.completed ? 1 : 0,
+				taskWithDefaults.priority,
+				taskWithDefaults.createdAt,
+				taskWithDefaults.updatedAt,
 			]
 		);
-		return {
-			...taskWithTimestamps,
-			id: result.lastInsertRowId,
-		};
+
+		// Return inserted task with correct id
+		return { ...taskWithDefaults, id: result.lastInsertRowId };
 	}
+
 	async updateTask(id: number, updates: Partial<Task>): Promise<Task | null> {
 		if (!this.db) throw new Error("Database not initialized");
 		const currentTask = await this.getTaskById(id);

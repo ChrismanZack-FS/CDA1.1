@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
+import { ConnectionStatus } from "../components/ConnectionStatus";
 import databaseService, { Task } from "../services/database";
+import { useSocket } from "../hooks/useSocket";
 export function useTasks() {
 	const [tasks, setTasks] = useState<Task[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const { isConnected, emit } = useSocket();
 	const loadTasks = async () => {
 		try {
 			setLoading(true);
@@ -20,6 +23,13 @@ export function useTasks() {
 		try {
 			const newTask = await databaseService.createTask(taskData);
 			setTasks((prev) => [newTask, ...prev]);
+
+			if (isConnected) {
+				emit("task_created", {
+					task: newTask,
+					timestamp: new Date().toISOString(),
+				});
+			}
 			return newTask;
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to create task");
