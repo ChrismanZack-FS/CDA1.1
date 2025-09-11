@@ -17,11 +17,10 @@ class SocketServiceImpl implements SocketService {
 	}
 	private getServerUrl(): string {
 		if (__DEV__) {
-			// Development URLs
 			if (Platform.OS === "web") {
 				return "http://localhost:3001";
 			} else {
-				// Mobile development - adjust IP to your computer's IP
+				// Mobile development - use your computer's IP
 				return "http://192.168.1.251:3001";
 			}
 		} else {
@@ -30,7 +29,7 @@ class SocketServiceImpl implements SocketService {
 		}
 	}
 	connect(): void {
-		if (this.socket?.connected) {
+		if (this.socket && this.socket.connected) {
 			console.log("Socket already connected");
 			return;
 		}
@@ -43,25 +42,32 @@ class SocketServiceImpl implements SocketService {
 			reconnectionAttempts: 5,
 			reconnectionDelay: 1000,
 		});
+
 		this.setupEventListeners();
 	}
 	private setupEventListeners(): void {
 		if (!this.socket) return;
 		this.socket.on("connect", () => {
-			console.log("Socket connected:", this.socket?.id);
+			console.log("[socketService] Socket connected:", this.socket?.id);
 		});
-
 		this.socket.on("disconnect", (reason) => {
-			console.log("Socket disconnected:", reason);
+			console.log("[socketService] Socket disconnected:", reason);
 		});
 		this.socket.on("connect_error", (error) => {
-			console.error("Socket connection error:", error.message);
+			console.error("[socketService] Socket connection error:", error.message);
 		});
 		this.socket.on("reconnect", (attemptNumber) => {
-			console.log("Socket reconnected after", attemptNumber, "attempts");
+			console.log(
+				"[socketService] Socket reconnected after",
+				attemptNumber,
+				"attempts"
+			);
 		});
 		this.socket.on("reconnect_error", (error) => {
-			console.error("Socket reconnection error:", error.message);
+			console.error(
+				"[socketService] Socket reconnection error:",
+				error.message
+			);
 		});
 	}
 	disconnect(): void {

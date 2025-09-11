@@ -36,20 +36,23 @@ export const useChat = (userId: string, userName: string): UseChatReturn => {
 			const existingRooms = await chatService.getAllRooms();
 			setRooms(existingRooms);
 
+			// Load messages for persistent room after initialization
+			const lastRoomId = chatService.getCurrentRoomId();
+			if (lastRoomId) {
+				const roomMessages = await chatService.getMessagesForRoom(lastRoomId);
+				setMessages(roomMessages);
+				setCurrentRoom(lastRoomId);
+				setMessageOffset(roomMessages.length);
+			}
+
 			// Set up event listeners
 			const unsubscribeMessage = chatService.onMessage((message) => {
 				setMessages((prev) => {
-					// Avoid duplicates
-					const exists = prev.some(
-						(m) => m.id === message.id || m.tempId === message.tempId
+					// Remove any message with the same id or tempId
+					const filtered = prev.filter(
+						(m) => m.id !== message.id && m.tempId !== message.tempId
 					);
-					if (exists) {
-						// Update existing message (e.g., delivery status)
-						return prev.map((m) =>
-							m.id === message.id || m.tempId === message.tempId ? message : m
-						);
-					}
-					return [...prev, message];
+					return [...filtered, message];
 				});
 			});
 			const unsubscribeTyping = chatService.onTyping((typingUser) => {
@@ -60,19 +63,37 @@ export const useChat = (userId: string, userName: string): UseChatReturn => {
 			});
 			const unsubscribeDelivery = chatService.onDelivery(
 				(tempId, messageId) => {
-					setMessages((prev) =>
-						prev.map((m) =>
-							m.tempId === tempId
-								? { ...m, id: messageId, delivered: true, tempId: undefined }
-								: m
-						)
-					);
+					setMessages((prev) => {
+						// Remove any message with the matching tempId
+						const filtered = prev.filter((m) => m.tempId !== tempId);
+						// Find the delivered message
+						const deliveredMsg = prev.find((m) => m.tempId === tempId);
+						if (deliveredMsg) {
+							return [
+								...filtered,
+								{
+									...deliveredMsg,
+									id: messageId,
+									delivered: true,
+									tempId: undefined,
+								},
+							];
+						}
+						return filtered;
+					});
 				}
 			);
+			// Listen for room join and update currentRoom
+			const unsubscribeRoomJoin = chatService.onMessage((message) => {
+				if (message.roomId && message.roomId !== currentRoom) {
+					setCurrentRoom(message.roomId);
+				}
+			});
 			return () => {
 				unsubscribeMessage();
 				unsubscribeTyping();
 				unsubscribeDelivery();
+				unsubscribeRoomJoin();
 			};
 		} catch (error) {
 			console.error("Error initializing chat:", error);
@@ -86,10 +107,20 @@ export const useChat = (userId: string, userName: string): UseChatReturn => {
 			await chatService.joinRoom(roomId, roomName);
 
 			// Load messages for this room
-			const roomMessages = await chatService.getMessagesForRoom(roomId);
-			setMessages(roomMessages);
+			let roomMessages = await chatService.getMessagesForRoom(roomId);
+			// Deduplicate loaded messages
+			const uniqueMessages = [];
+			const seen = new Set();
+			for (const msg of roomMessages) {
+				const key = msg.id || msg.tempId;
+				if (!seen.has(key)) {
+					uniqueMessages.push(msg);
+					seen.add(key);
+				}
+			}
+			setMessages(uniqueMessages);
 			setCurrentRoom(roomId);
-			setMessageOffset(roomMessages.length);
+			setMessageOffset(uniqueMessages.length);
 
 			// Clear typing indicators when switching rooms
 			setTypingUsers([]);

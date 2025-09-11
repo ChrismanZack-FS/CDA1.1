@@ -126,8 +126,29 @@ class ChatDatabaseService {
 	// Message management
 	async saveMessage(message: ChatMessage): Promise<void> {
 		if (!this.db) throw new Error("Database not initialized");
-
+		if (!message.roomId) {
+			console.error("Error: message.roomId is undefined! Message:", message);
+			throw new Error("Cannot save message: roomId is undefined.");
+		}
 		try {
+			// Log SQL and parameters for debugging
+			console.log(
+				"saveMessage SQL:",
+				`INSERT OR REPLACE INTO chat_messages (id, temp_id, room_id, user_id, user_name, text, timestamp, delivered, read, type, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+			);
+			console.log("saveMessage params:", [
+				message.id,
+				message.tempId || null,
+				message.roomId,
+				message.userId,
+				message.userName,
+				message.text,
+				message.timestamp,
+				message.delivered ? 1 : 0,
+				message.read ? 1 : 0,
+				message.type,
+				new Date().toISOString(),
+			]);
 			await this.db.runAsync(
 				`
         INSERT OR REPLACE INTO chat_messages 
@@ -205,13 +226,10 @@ class ChatDatabaseService {
 		if (!this.db) throw new Error("Database not initialized");
 
 		try {
+			// Update delivery status and set temp_id to NULL, but do not change id
 			await this.db.runAsync(
-				`
-        UPDATE chat_messages 
-        SET id = ?, delivered = ?, temp_id = NULL 
-        WHERE temp_id = ?
-      `,
-				[messageId, delivered ? 1 : 0, tempId]
+				`UPDATE chat_messages SET delivered = ?, temp_id = NULL WHERE temp_id = ?`,
+				[delivered ? 1 : 0, tempId]
 			);
 		} catch (error) {
 			console.error("Error updating message delivery status:", error);

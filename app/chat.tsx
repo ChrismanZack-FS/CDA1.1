@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import secureStorageService from "../services/secureStorage";
 import {
 	View,
 	Text,
@@ -12,6 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useChat } from "../hooks/useChat";
 import { ChatMessage } from "../services/chatDatabase";
+
 // You would get these from user authentication
 const CURRENT_USER_ID = "user_123";
 const CURRENT_USER_NAME = "John Doe";
@@ -31,10 +33,7 @@ export default function ChatScreen() {
 		loadMoreMessages,
 	} = useChat(CURRENT_USER_ID, CURRENT_USER_NAME);
 
-	useEffect(() => {
-		// Auto-join a default room for demo
-		joinRoom("general", "General Chat");
-	}, [joinRoom]);
+	// Room joining is now handled by chatService initialization (via useChat)
 	useEffect(() => {
 		// Scroll to bottom when new messages arrive
 		if (messages.length > 0) {
@@ -66,7 +65,20 @@ export default function ChatScreen() {
 			stopTyping();
 		}
 	};
-	const renderMessage = ({ item }: { item: ChatMessage }) => {
+	const renderMessage = ({ item }: { item: ChatMessage | any }) => {
+		if (item.type === "typing") {
+			const typingNames = item.users.map((u: any) => u.userName).join(", ");
+			return (
+				<View key={item.id} className="items-start mb-3">
+					<View className="bg-gray-200 dark:bg-gray-700 rounded-2xl rounded-bl-md px-4 py-2">
+						<Text className="text-gray-600 dark:text-gray-300 text-sm">
+							{typingNames} {item.users.length === 1 ? "is" : "are"} typing...
+						</Text>
+					</View>
+				</View>
+			);
+		}
+
 		const isOwnMessage = item.userId === CURRENT_USER_ID;
 
 		return (
@@ -132,59 +144,66 @@ export default function ChatScreen() {
 			</View>
 		);
 	};
+
+	// Deduplicate messages by id before rendering
+	const dedupedMessages = Array.from(
+		new Map(messages.map((msg) => [msg.id, msg])).values()
+	);
+
 	return (
-		<SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
+		<SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
 			<KeyboardAvoidingView
+				style={{ flex: 1 }}
 				behavior={Platform.OS === "ios" ? "padding" : "height"}
-				className="flex-1"
+				keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
 			>
-				{/* Header */}
-				<View className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
-					<Text className="text-lg font-semibold text-gray-800 dark:text-white">
-						General Chat
-					</Text>
-					<Text className="text-sm text-gray-500 dark:text-gray-400">
-						{typingUsers.length > 0
-							? `${typingUsers.length} person${typingUsers.length > 1 ? "s" : ""} typing...`
-							: "Tap to see room info"}
-					</Text>
-				</View>
-				{/* Messages */}
-				<FlatList
-					ref={flatListRef}
-					data={messages}
-					renderItem={renderMessage}
-					keyExtractor={(item, index) => item.id ?? `msg_${index}`} // fallback to index if id missing
-					className="flex-1 px-4"
-					contentContainerStyle={{ paddingVertical: 16 }}
-					onEndReached={loadMoreMessages}
-					onEndReachedThreshold={0.1}
-					ListFooterComponent={renderTypingIndicator}
-				/>
-				{/* Input */}
-				<View className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-3">
-					<View className="flex-row items-end">
+				<View style={{ flex: 1 }}>
+					<FlatList
+						ref={flatListRef}
+						data={dedupedMessages}
+						renderItem={renderMessage}
+						keyExtractor={(item) => item.id}
+						style={{ flex: 1 }}
+						contentContainerStyle={{ padding: 8 }}
+					/>
+					<View
+						style={{
+							flexDirection: "row",
+							padding: 8,
+							borderTopWidth: 1,
+							borderColor: "#eee",
+							backgroundColor: "#fff",
+						}}
+					>
 						<TextInput
-							className="flex-1 border border-gray-300 dark:border-gray-600 rounded-full px-4 py-2 mr-2 bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white"
+							style={{
+								flex: 1,
+								borderWidth: 1,
+								borderColor: "#ccc",
+								borderRadius: 20,
+								paddingHorizontal: 12,
+								paddingVertical: 8,
+								marginRight: 8,
+							}}
 							placeholder="Type a message..."
-							placeholderTextColor="#9CA3AF"
 							value={inputText}
 							onChangeText={handleTextChange}
 							onSubmitEditing={handleSendMessage}
-							onBlur={handleStopTyping}
 							multiline
-							maxLength={1000}
 						/>
 						<TouchableOpacity
-							className={`rounded-full p-2 ${
-								inputText.trim()
-									? "bg-blue-500 active:bg-blue-600"
-									: "bg-gray-300 dark:bg-gray-600"
-							}`}
+							style={{
+								backgroundColor: "#007AFF",
+								borderRadius: 20,
+								paddingHorizontal: 16,
+								paddingVertical: 10,
+								justifyContent: "center",
+								alignItems: "center",
+							}}
 							onPress={handleSendMessage}
 							disabled={!inputText.trim()}
 						>
-							<Text className="text-white font-semibold px-2">Send</Text>
+							<Text style={{ color: "#fff", fontWeight: "bold" }}>Send</Text>
 						</TouchableOpacity>
 					</View>
 				</View>
@@ -192,45 +211,3 @@ export default function ChatScreen() {
 		</SafeAreaView>
 	);
 }
-const styles = StyleSheet.create({
-	container: { flex: 1 },
-	centered: { justifyContent: "center", alignItems: "center" },
-	taskItem: {
-		padding: 16,
-		margin: 8,
-		borderRadius: 8,
-		flexDirection: "row",
-		justifyContent: "space-between",
-		alignItems: "center",
-	},
-	taskActions: { flexDirection: "row", alignItems: "center" },
-	deleteButton: { fontSize: 20, marginRight: 10 },
-	taskStatus: { fontSize: 24 },
-	addButton: {
-		backgroundColor: "#007AFF",
-		margin: 16,
-		padding: 16,
-		borderRadius: 8,
-		alignItems: "center",
-	},
-	addButtonText: { color: "white", fontSize: 16, fontWeight: "bold" },
-	emptyState: {
-		flex: 1,
-		justifyContent: "center",
-		alignItems: "center",
-		paddingTop: 100,
-	},
-	emptyText: {
-		fontSize: 18,
-		fontWeight: "bold",
-		color: "#666",
-		marginBottom: 8,
-	},
-	emptySubtext: { fontSize: 14, color: "#999" },
-	errorText: { color: "red", fontSize: 16 },
-	connectionStatusText: {
-		fontSize: 18,
-		fontWeight: "bold",
-		marginBottom: 8,
-	},
-});

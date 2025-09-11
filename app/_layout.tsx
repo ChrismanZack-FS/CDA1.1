@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import { TasksProvider } from "../context/TasksContext";
 import databaseService from "../services/database";
+import { socketService } from "../services/socketService";
 
 export default function RootLayout() {
 	const [ready, setReady] = useState(false);
 
 	useEffect(() => {
+		socketService.connect(); // Ensure socket is connected before chat logic
 		(async () => {
 			try {
 				await databaseService.init();
@@ -35,6 +37,11 @@ export default function RootLayout() {
 				<Stack.Screen name="add-task" options={{ title: "Add Task" }} />
 				<Stack.Screen name="edit-task" options={{ title: "Edit Task" }} />
 				<Stack.Screen name="settings" options={{ title: "Settings" }} />
+				<Stack.Screen name="chat" options={{ title: "Chat" }} />
+				<Stack.Screen
+					name="collaborative"
+					options={{ title: "Collaborative" }}
+				/>
 			</Stack>
 		</TasksProvider>
 	);

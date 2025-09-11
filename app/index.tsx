@@ -75,6 +75,15 @@ export default function TasksScreen() {
 						</TouchableOpacity>
 					</Link>
 
+					{/* Collaborative Link */}
+					<Link href="/collaborative" asChild>
+						<TouchableOpacity style={{ marginRight: 15 }}>
+							<Text style={{ fontSize: 22, color: Colors[theme].text }}>
+								🤝
+							</Text>
+						</TouchableOpacity>
+					</Link>
+
 					{/* Settings Link */}
 					<Link href="/settings" asChild>
 						<TouchableOpacity style={{ marginRight: 15 }}>

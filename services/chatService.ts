@@ -1,5 +1,6 @@
 import { socketService } from "./socketService";
 import { chatDatabaseService, ChatMessage, ChatRoom } from "./chatDatabase";
+import secureStorageService from "./secureStorage";
 export interface TypingUser {
 	userId: string;
 	userName: string;
@@ -24,18 +25,43 @@ class ChatService {
 	private deliveryListeners: ((tempId: string, messageId: string) => void)[] =
 		[];
 	async initialize(userId: string, userName: string): Promise<void> {
+		console.log("[chatService] initialize called with:", userId, userName);
 		this.currentUserId = userId;
 		this.currentUserName = userName;
 
 		await chatDatabaseService.initializeDatabase();
 		this.setupSocketListeners();
 
-		// Join user session
-		socketService.emit("user_join", {
-			userId,
-			userName,
-			timestamp: new Date().toISOString(),
-		});
+		// Wait for socket to connect before emitting events
+		const emitOnConnect = async () => {
+			socketService.emit("user_join", {
+				userId,
+				userName,
+				timestamp: new Date().toISOString(),
+			});
+			const lastRoomId = await secureStorageService.getItem("lastRoomId");
+			const lastRoomName = await secureStorageService.getItem("lastRoomName");
+			console.log(
+				"[chatService] emitOnConnect lastRoomId:",
+				lastRoomId,
+				"lastRoomName:",
+				lastRoomName
+			);
+			if (lastRoomId && lastRoomName) {
+				console.log("[chatService] Calling joinRoom from emitOnConnect");
+				await this.joinRoom(lastRoomId, lastRoomName);
+			} else {
+				console.log(
+					"[chatService] No persistent room found, joining default room"
+				);
+				await this.joinRoom("general", "General Chat");
+			}
+		};
+		if (socketService.isConnected()) {
+			await emitOnConnect();
+		} else {
+			socketService.on("connect", emitOnConnect);
+		}
 	}
 	private setupSocketListeners(): void {
 		// Handle new messages
@@ -73,22 +99,29 @@ class ChatService {
 		});
 	}
 	async joinRoom(roomId: string, roomName: string): Promise<void> {
+		console.log("[chatService] joinRoom called with:", roomId, roomName);
 		this.currentRoomId = roomId;
-
-		// Create/update room in local database
+		await secureStorageService.setItem("lastRoomId", roomId);
+		await secureStorageService.setItem("lastRoomName", roomName);
 		await chatDatabaseService.createOrUpdateRoom({
 			id: roomId,
 			name: roomName,
 			unreadCount: 0,
 			participants: [this.currentUserId!],
 		});
-
-		// Join room on server
-		socketService.emit("join_room", {
-			roomId,
-			userId: this.currentUserId,
-			userName: this.currentUserName,
-		});
+		// Wait for socket to connect before emitting join_room
+		const emitJoinRoom = () => {
+			socketService.emit("join_room", {
+				roomId,
+				userId: this.currentUserId,
+				userName: this.currentUserName,
+			});
+		};
+		if (socketService.isConnected()) {
+			emitJoinRoom();
+		} else {
+			socketService.on("connect", emitJoinRoom);
+		}
 	}
 	async sendMessage(text: string): Promise<void> {
 		if (!this.currentRoomId || !this.currentUserId || !this.currentUserName) {
@@ -230,6 +263,9 @@ class ChatService {
 	}
 	private notifyDeliveryListeners(tempId: string, messageId: string): void {
 		this.deliveryListeners.forEach((callback) => callback(tempId, messageId));
+	}
+	public getCurrentRoomId(): string | null {
+		return this.currentRoomId;
 	}
 }
 export const chatService = new ChatService();
