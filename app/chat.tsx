@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import secureStorageService from "../services/secureStorage";
+import { Platform } from "react-native";
 import {
 	View,
 	Text,
@@ -7,17 +7,79 @@ import {
 	TouchableOpacity,
 	FlatList,
 	KeyboardAvoidingView,
-	Platform,
 	StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useChat } from "../hooks/useChat";
 import { ChatMessage } from "../services/chatDatabase";
+import { useEffect as useReactEffect } from "react";
+import { useUserPreferences } from "../hooks/useUserPreferences";
 
-// You would get these from user authentication
-const CURRENT_USER_ID = "user_123";
-const CURRENT_USER_NAME = "John Doe";
+// Generate a unique user ID based on username (stable per user)
+function getUserId(username: string | null) {
+	if (!username) return "user_anon";
+	// Simple hash for demo purposes
+	let hash = 0;
+	for (let i = 0; i < username.length; i++) {
+		hash = (hash << 5) - hash + username.charCodeAt(i);
+		hash |= 0;
+	}
+	return `user_${Math.abs(hash)}`;
+}
+
 export default function ChatScreen() {
+	// Get username from settings
+	const { preferences } = useUserPreferences();
+	const CURRENT_USER_NAME = preferences.username || "User";
+	const CURRENT_USER_ID = getUserId(preferences.username);
+
+	// Render a single chat message
+	const renderMessage = ({ item }: { item: ChatMessage }) => {
+		const isOwnMessage = item.userId === CURRENT_USER_ID;
+		return (
+			<View
+				style={{
+					backgroundColor: isOwnMessage ? "#007AFF" : "#eee",
+					alignSelf: isOwnMessage ? "flex-end" : "flex-start",
+					marginBottom: 8,
+					borderRadius: 16,
+					padding: 12,
+					maxWidth: "80%",
+				}}
+			>
+				<Text
+					style={{
+						color: isOwnMessage ? "#fff" : "#333",
+						fontSize: 16,
+					}}
+				>
+					{item.text}
+				</Text>
+				<View
+					style={{
+						flexDirection: "row",
+						alignItems: "center",
+						justifyContent: "space-between",
+						marginTop: 4,
+					}}
+				>
+					<Text
+						style={{ color: isOwnMessage ? "#cce6ff" : "#666", fontSize: 12 }}
+					>
+						{new Date(item.timestamp).toLocaleTimeString([], {
+							hour: "2-digit",
+							minute: "2-digit",
+						})}
+					</Text>
+					{isOwnMessage && (
+						<Text style={{ color: "#cce6ff", fontSize: 12, marginLeft: 8 }}>
+							{item.delivered ? "✓✓" : "✓"}
+						</Text>
+					)}
+				</View>
+			</View>
+		);
+	};
 	const [inputText, setInputText] = useState("");
 	const [isTyping, setIsTyping] = useState(false);
 	const flatListRef = useRef<FlatList>(null);
@@ -25,6 +87,7 @@ export default function ChatScreen() {
 	const {
 		messages,
 		typingUsers,
+		rooms,
 		currentRoom,
 		sendMessage,
 		joinRoom,
@@ -46,16 +109,22 @@ export default function ChatScreen() {
 			}, 100);
 		}
 	}, [messages]);
+	useEffect(() => {
+		console.log("Rooms in UI:", rooms);
+	}, [rooms]);
 	const handleSendMessage = async () => {
 		if (!inputText.trim()) return;
-
+		if (!currentRoom) {
+			alert("Please select a room before sending a message.");
+			return;
+		}
 		await sendMessage(inputText.trim());
 		setInputText("");
 		handleStopTyping();
 	};
 	const handleTextChange = (text: string) => {
 		setInputText(text);
-
+		if (!currentRoom) return;
 		if (text.length > 0 && !isTyping) {
 			setIsTyping(true);
 			startTyping();
@@ -64,88 +133,28 @@ export default function ChatScreen() {
 		}
 	};
 	const handleStopTyping = () => {
-		if (isTyping) {
+		if (isTyping && currentRoom) {
 			setIsTyping(false);
 			stopTyping();
 		}
 	};
-	const renderMessage = ({ item }: { item: ChatMessage | any }) => {
-		if (item.type === "typing") {
-			const typingNames = item.users.map((u: any) => u.userName).join(", ");
-			return (
-				<View key={item.id} className="items-start mb-3">
-					<View className="bg-gray-200 dark:bg-gray-700 rounded-2xl rounded-bl-md px-4 py-2">
-						<Text className="text-gray-600 dark:text-gray-300 text-sm">
-							{typingNames} {item.users.length === 1 ? "is" : "are"} typing...
-						</Text>
-					</View>
-				</View>
-			);
-		}
 
-		const isOwnMessage = item.userId === CURRENT_USER_ID;
-
-		return (
-			<View
-				className={`flex-row ${isOwnMessage ? "justify-end" : "justify-start"}`}
-			>
-				<View className={`mb-3 ${isOwnMessage ? "items-end" : "items-start"}`}>
-					{!isOwnMessage && (
-						<Text className="text-sm text-gray-600 dark:text-gray-300 mb-1">
-							{item.userName}
-						</Text>
-					)}
-					<View
-						className={`max-w-3/4 p-3 rounded-2xl ${
-							isOwnMessage
-								? "bg-blue-500 rounded-br-md"
-								: "bg-gray-200 dark:bg-gray-700 rounded-bl-md"
-						}`}
-					>
-						<Text
-							className={`text-base ${
-								isOwnMessage ? "text-white" : "text-gray-800 dark:text-white"
-							}`}
-						>
-							{item.text}
-						</Text>
-						<View className="flex-row items-center justify-between mt-1">
-							<Text
-								className={`text-xs ${
-									isOwnMessage
-										? "text-blue-100"
-										: "text-gray-500 dark:text-gray-400"
-								}`}
-							>
-								{new Date(item.timestamp).toLocaleTimeString([], {
-									hour: "2-digit",
-									minute: "2-digit",
-								})}
-							</Text>
-							{isOwnMessage && (
-								<Text className="text-xs text-blue-100 ml-2">
-									{item.delivered ? "✓✓" : "✓"}
-								</Text>
-							)}
-						</View>
-					</View>
-				</View>
-			</View>
-		);
-	};
 	const renderTypingIndicator = () => {
 		if (typingUsers.length === 0) {
-			console.log("[chat.tsx] No one is typing.");
 			return null;
 		}
-
-		const typingNames = typingUsers.map((u) => u.userName).join(", ");
-		console.log("[chat.tsx] Typing indicator should show:", typingNames);
-
+		const typingNames = typingUsers.map((u: any) => u.userName).join(", ");
 		return (
-			<View className="items-start mb-3">
-				<View className="bg-gray-200 dark:bg-gray-700 rounded-2xl rounded-bl-md px-4 py-2">
-					<Text className="text-gray-600 dark:text-gray-300 text-sm">
+			<View style={{ alignItems: "flex-start", marginBottom: 12 }}>
+				<View
+					style={{
+						backgroundColor: "#eee",
+						borderRadius: 16,
+						paddingHorizontal: 12,
+						paddingVertical: 6,
+					}}
+				>
+					<Text style={{ color: "#666", fontSize: 14 }}>
 						{typingNames} {typingUsers.length === 1 ? "is" : "are"} typing...
 					</Text>
 				</View>
@@ -153,10 +162,10 @@ export default function ChatScreen() {
 		);
 	};
 
-	// Deduplicate messages by id before rendering
+	// Deduplicate and filter messages by current room before rendering
 	const dedupedMessages = Array.from(
-		new Map(messages.map((msg) => [msg.id, msg])).values()
-	);
+		new Map(messages.map((msg: ChatMessage) => [msg.id, msg])).values()
+	).filter((msg: ChatMessage) => msg.roomId === currentRoom);
 
 	return (
 		<SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
@@ -166,6 +175,74 @@ export default function ChatScreen() {
 				keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
 			>
 				<View style={{ flex: 1 }}>
+					{/*could not get unread indicator to work properly*/}
+					{/* Channel selector at the top with unread indicator */}
+					<View
+						style={{ flexDirection: "row", marginBottom: 8, paddingTop: 8 }}
+					>
+						{rooms.map((room) => {
+							const isActive = room.id === currentRoom;
+							const hasUnread = room.unreadCount > 0;
+							return (
+								<TouchableOpacity
+									key={room.id}
+									onPress={() => joinRoom(room.id, room.name)}
+									style={{
+										marginRight: 12,
+										paddingVertical: 6,
+										paddingHorizontal: 14,
+										borderRadius: 16,
+										backgroundColor: isActive ? "#007AFF" : "#eee",
+										position: "relative",
+										// Add red glow if has unread and not active
+										shadowColor: hasUnread && !isActive ? "red" : undefined,
+										shadowOffset:
+											hasUnread && !isActive
+												? { width: 0, height: 0 }
+												: undefined,
+										shadowOpacity: hasUnread && !isActive ? 0.8 : 0,
+										shadowRadius: hasUnread && !isActive ? 8 : 0,
+										borderWidth: hasUnread && !isActive ? 2 : 0,
+										borderColor: hasUnread && !isActive ? "red" : "transparent",
+									}}
+								>
+									<Text
+										style={{
+											color: isActive ? "#fff" : "#333",
+											fontWeight: "bold",
+										}}
+									>
+										{room.name}
+									</Text>
+									{hasUnread && (
+										<View
+											style={{
+												position: "absolute",
+												top: -4,
+												right: -4,
+												backgroundColor: "red",
+												borderRadius: 8,
+												paddingHorizontal: 6,
+												paddingVertical: 2,
+												minWidth: 16,
+												alignItems: "center",
+											}}
+										>
+											<Text
+												style={{
+													color: "#fff",
+													fontSize: 12,
+													fontWeight: "bold",
+												}}
+											>
+												{room.unreadCount}
+											</Text>
+										</View>
+									)}
+								</TouchableOpacity>
+							);
+						})}
+					</View>
 					{/* Typing indicator above message list */}
 					{renderTypingIndicator()}
 					<FlatList
@@ -203,7 +280,7 @@ export default function ChatScreen() {
 						/>
 						<TouchableOpacity
 							style={{
-								backgroundColor: "#007AFF",
+								backgroundColor: !inputText.trim() ? "#ccc" : "#007AFF",
 								borderRadius: 20,
 								paddingHorizontal: 16,
 								paddingVertical: 10,

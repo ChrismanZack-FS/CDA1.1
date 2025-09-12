@@ -39,6 +39,7 @@ class ChatService {
 				userName,
 				timestamp: new Date().toISOString(),
 			});
+			// Do NOT auto-join any room. Only join if no lastRoomId is set.
 			const lastRoomId = await secureStorageService.getItem("lastRoomId");
 			const lastRoomName = await secureStorageService.getItem("lastRoomName");
 			console.log(
@@ -47,15 +48,14 @@ class ChatService {
 				"lastRoomName:",
 				lastRoomName
 			);
-			if (lastRoomId && lastRoomName) {
-				console.log("[chatService] Calling joinRoom from emitOnConnect");
-				await this.joinRoom(lastRoomId, lastRoomName);
-			} else {
+			// Only join default room if no persistent room is set
+			if (!lastRoomId || !lastRoomName) {
 				console.log(
 					"[chatService] No persistent room found, joining default room"
 				);
 				await this.joinRoom("general", "General Chat");
 			}
+			// Otherwise, do nothing and let the user select
 		};
 		if (socketService.isConnected()) {
 			await emitOnConnect();

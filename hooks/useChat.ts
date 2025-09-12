@@ -19,6 +19,7 @@ export interface UseChatReturn {
 }
 export const useChat = (userId: string, userName: string): UseChatReturn => {
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
+
 	const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
 	const [rooms, setRooms] = useState<ChatRoom[]>([]);
 	const [currentRoom, setCurrentRoom] = useState<string | null>(null);
@@ -34,15 +35,16 @@ export const useChat = (userId: string, userName: string): UseChatReturn => {
 
 			// Load existing rooms
 			const existingRooms = await chatService.getAllRooms();
+			console.log("Rooms fetched from DB:", existingRooms);
 			setRooms(existingRooms);
 
 			// Load messages for persistent room after initialization
 			const lastRoomId = chatService.getCurrentRoomId();
-			if (lastRoomId) {
+			if (!currentRoom && lastRoomId) {
 				const roomMessages = await chatService.getMessagesForRoom(lastRoomId);
 				setMessages(roomMessages);
-				setCurrentRoom(lastRoomId);
 				setMessageOffset(roomMessages.length);
+				// DO NOT setCurrentRoom here
 			}
 
 			// Set up event listeners
@@ -84,11 +86,9 @@ export const useChat = (userId: string, userName: string): UseChatReturn => {
 				}
 			);
 			// Listen for room join and update currentRoom
-			const unsubscribeRoomJoin = chatService.onMessage((message) => {
-				if (message.roomId && message.roomId !== currentRoom) {
-					setCurrentRoom(message.roomId);
-				}
-			});
+			// Remove auto-switching to message.roomId on incoming message
+			// Instead, rely on unreadCount and UI indicator
+			const unsubscribeRoomJoin = () => {};
 			return () => {
 				unsubscribeMessage();
 				unsubscribeTyping();

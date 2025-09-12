@@ -28,42 +28,78 @@ class ChatDatabaseService {
 
 			// Create chat rooms table
 			await this.db.execAsync(`
-        CREATE TABLE IF NOT EXISTS chat_rooms (
-          id TEXT PRIMARY KEY,
-          name TEXT NOT NULL,
-          description TEXT,
-          last_message TEXT,
-          last_message_time TEXT,
-          unread_count INTEGER DEFAULT 0,
-          participants TEXT,
-          created_at TEXT NOT NULL,
-          updated_at TEXT NOT NULL
-        );
-      `);
+				CREATE TABLE IF NOT EXISTS chat_rooms (
+					id TEXT PRIMARY KEY,
+					name TEXT NOT NULL,
+					description TEXT,
+					last_message TEXT,
+					last_message_time TEXT,
+					unread_count INTEGER DEFAULT 0,
+					participants TEXT,
+					created_at TEXT NOT NULL,
+					updated_at TEXT NOT NULL
+				);
+			`);
 
 			// Create messages table
 			await this.db.execAsync(`
-        CREATE TABLE IF NOT EXISTS chat_messages (
-          id TEXT PRIMARY KEY,
-          temp_id TEXT,
-          room_id TEXT NOT NULL,
-          user_id TEXT NOT NULL,
-          user_name TEXT NOT NULL,
-          text TEXT NOT NULL,
-          timestamp TEXT NOT NULL,
-          delivered INTEGER DEFAULT 0,
-          read INTEGER DEFAULT 0,
-          type TEXT DEFAULT 'text',
-          created_at TEXT NOT NULL,
-          FOREIGN KEY (room_id) REFERENCES chat_rooms (id)
-        );
-      `);
+				CREATE TABLE IF NOT EXISTS chat_messages (
+					id TEXT PRIMARY KEY,
+					temp_id TEXT,
+					room_id TEXT NOT NULL,
+					user_id TEXT NOT NULL,
+					user_name TEXT NOT NULL,
+					text TEXT NOT NULL,
+					timestamp TEXT NOT NULL,
+					delivered INTEGER DEFAULT 0,
+					read INTEGER DEFAULT 0,
+					type TEXT DEFAULT 'text',
+					created_at TEXT NOT NULL,
+					FOREIGN KEY (room_id) REFERENCES chat_rooms (id)
+				);
+			`);
 
 			// Create indexes for performance
 			await this.db.execAsync(`
-        CREATE INDEX IF NOT EXISTS idx_messages_room_timestamp 
-        ON chat_messages(room_id, timestamp DESC);
-      `);
+				CREATE INDEX IF NOT EXISTS idx_messages_room_timestamp 
+				ON chat_messages(room_id, timestamp DESC);
+			`);
+
+			// Seed default rooms if not present
+			const defaultRooms = [
+				{
+					id: "general",
+					name: "General",
+					description: "General team chat",
+					participants: [],
+					unreadCount: 0,
+				},
+				{
+					id: "development",
+					name: "Development",
+					description: "Development discussions",
+					participants: [],
+					unreadCount: 0,
+				},
+				{
+					id: "random",
+					name: "Random",
+					description: "Random topics",
+					participants: [],
+					unreadCount: 0,
+				},
+			];
+			console.log("Checking/Seeding default rooms...");
+			for (const room of defaultRooms) {
+				const existing = await this.db.getFirstAsync(
+					"SELECT id FROM chat_rooms WHERE id = ?",
+					[room.id]
+				);
+				if (!existing) {
+					await this.createOrUpdateRoom(room);
+					console.log("Seeded room:", room);
+				}
+			}
 
 			console.log("Chat database initialized successfully");
 		} catch (error) {
