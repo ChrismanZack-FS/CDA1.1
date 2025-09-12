@@ -28,53 +28,63 @@ export const useCollaborative = (
 	const [participants, setParticipants] = useState<Participant[]>([]);
 	const [editLocks, setEditLocks] = useState<EditLock[]>([]);
 	const [isConnected, setIsConnected] = useState(false);
+
 	useEffect(() => {
+		let unsubscribeState = () => {};
+		let unsubscribeParticipants = () => {};
+		let unsubscribeLocks = () => {};
+		let unsubscribePresence = () => {};
+		let socketService: any;
+		let handleConnect: any;
+		let handleDisconnect: any;
+
+		const initializeCollaboration = async () => {
+			try {
+				await collaborativeService.initialize(userId, roomId);
+
+				// Set up event listeners
+				unsubscribeState = collaborativeService.onStateChange((state) => {
+					setSharedState({ ...state }); // Force new object reference
+				});
+				unsubscribeParticipants = collaborativeService.onParticipantsChange(
+					(participants) => {
+						setParticipants(participants);
+					}
+				);
+				unsubscribeLocks = collaborativeService.onLocksChange((locks) => {
+					setEditLocks(locks);
+				});
+				unsubscribePresence = collaborativeService.onPresenceChange(
+					(userId, presence) => {
+						setParticipants((prev) =>
+							prev.map((p) => (p.userId === userId ? { ...p, ...presence } : p))
+						);
+					}
+				);
+				// Track connection status
+				socketService = require("../services/socketService").socketService;
+				handleConnect = () => setIsConnected(true);
+				handleDisconnect = () => setIsConnected(false);
+
+				socketService.on("connect", handleConnect);
+				socketService.on("disconnect", handleDisconnect);
+				setIsConnected(socketService.isConnected());
+			} catch (error) {
+				console.error("Error initializing collaboration:", error);
+			}
+		};
 		initializeCollaboration();
-	}, [userId, roomId]);
-	const initializeCollaboration = async () => {
-		try {
-			await collaborativeService.initialize(userId, roomId);
-
-			// Set up event listeners
-			const unsubscribeState = collaborativeService.onStateChange((state) => {
-				setSharedState(state);
-			});
-			const unsubscribeParticipants = collaborativeService.onParticipantsChange(
-				(participants) => {
-					setParticipants(participants);
-				}
-			);
-			const unsubscribeLocks = collaborativeService.onLocksChange((locks) => {
-				setEditLocks(locks);
-			});
-			const unsubscribePresence = collaborativeService.onPresenceChange(
-				(userId, presence) => {
-					// Handle presence updates (cursor positions, etc.)
-					setParticipants((prev) =>
-						prev.map((p) => (p.userId === userId ? { ...p, ...presence } : p))
-					);
-				}
-			);
-			// Track connection status
-			const socketService = require("../services/socketService").socketService;
-			const handleConnect = () => setIsConnected(true);
-			const handleDisconnect = () => setIsConnected(false);
-
-			socketService.on("connect", handleConnect);
-			socketService.on("disconnect", handleDisconnect);
-			setIsConnected(socketService.isConnected());
-			return () => {
-				unsubscribeState();
-				unsubscribeParticipants();
-				unsubscribeLocks();
-				unsubscribePresence();
+		return () => {
+			unsubscribeState();
+			unsubscribeParticipants();
+			unsubscribeLocks();
+			unsubscribePresence();
+			if (socketService) {
 				socketService.off("connect", handleConnect);
 				socketService.off("disconnect", handleDisconnect);
-			};
-		} catch (error) {
-			console.error("Error initializing collaboration:", error);
-		}
-	};
+			}
+		};
+	}, [userId, roomId]);
 	const updateTask = useCallback(async (taskId: string, updates: any) => {
 		await collaborativeService.updateTask(taskId, updates);
 	}, []);

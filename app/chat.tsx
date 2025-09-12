@@ -33,6 +33,10 @@ export default function ChatScreen() {
 		loadMoreMessages,
 	} = useChat(CURRENT_USER_ID, CURRENT_USER_NAME);
 
+	useEffect(() => {
+		console.log("[chat.tsx] typingUsers updated:", typingUsers);
+	}, [typingUsers]);
+
 	// Room joining is now handled by chatService initialization (via useChat)
 	useEffect(() => {
 		// Scroll to bottom when new messages arrive
@@ -130,9 +134,13 @@ export default function ChatScreen() {
 		);
 	};
 	const renderTypingIndicator = () => {
-		if (typingUsers.length === 0) return null;
+		if (typingUsers.length === 0) {
+			console.log("[chat.tsx] No one is typing.");
+			return null;
+		}
 
 		const typingNames = typingUsers.map((u) => u.userName).join(", ");
+		console.log("[chat.tsx] Typing indicator should show:", typingNames);
 
 		return (
 			<View className="items-start mb-3">
@@ -158,6 +166,8 @@ export default function ChatScreen() {
 				keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
 			>
 				<View style={{ flex: 1 }}>
+					{/* Typing indicator above message list */}
+					{renderTypingIndicator()}
 					<FlatList
 						ref={flatListRef}
 						data={dedupedMessages}

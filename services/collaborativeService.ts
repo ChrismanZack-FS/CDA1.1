@@ -98,11 +98,19 @@ class CollaborativeService {
 				operation: CollaborativeOperation;
 				sharedState: CollaborativeState;
 			}) => {
-				// Don't apply operations from ourselves
-				if (data.operation.userId !== this.currentUserId) {
-					this.localState = { ...data.sharedState };
-					this.notifyStateListeners();
-				}
+				// Debug log for real-time sync
+				console.log(
+					"[collaborativeService] operation_applied received:",
+					data.operation.type,
+					data.operation.taskId
+				);
+				// Always update local state for real-time sync
+				this.localState = { ...data.sharedState };
+				this.notifyStateListeners();
+				console.log(
+					"[collaborativeService] localState updated from operation_applied:",
+					Object.keys(this.localState.tasks)
+				);
 			}
 		);
 		// Handle participant updates
@@ -260,6 +268,13 @@ class CollaborativeService {
 	}
 	// Apply operation to local state
 	private applyOperationLocally(operation: CollaborativeOperation): void {
+		// Ensure localState and tasks are initialized
+		if (!this.localState) {
+			this.localState = { tasks: {} };
+		}
+		if (!this.localState.tasks) {
+			this.localState.tasks = {};
+		}
 		if (operation.type === "ADD_TASK" && operation.taskId && operation.task) {
 			this.localState.tasks[operation.taskId] = { ...operation.task };
 		} else if (
@@ -275,13 +290,17 @@ class CollaborativeService {
 			}
 		} else if (operation.type === "DELETE_TASK" && operation.taskId) {
 			if (this.localState.tasks[operation.taskId]) {
-				this.localState.tasks[operation.taskId].deleted = true;
+				delete this.localState.tasks[operation.taskId];
 			}
 		}
 		this.notifyStateListeners();
 	}
 	// Notify listeners of state change
 	private notifyStateListeners(): void {
+		console.log(
+			"[collaborativeService] notifyStateListeners called. Current tasks:",
+			Object.keys(this.localState.tasks)
+		);
 		this.stateListeners.forEach((callback) => callback(this.localState));
 	}
 	// Notify participant listeners

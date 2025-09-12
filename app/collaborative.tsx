@@ -85,10 +85,13 @@ export default function CollaborativeTasksScreen() {
 			lockedBy: lock?.userName,
 		};
 	};
-	const tasks = Object.values(sharedState.tasks || {}).sort(
-		(a: any, b: any) =>
-			new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-	);
+	const tasks = Object.values(sharedState.tasks || {})
+		.filter((task: any) => task && !task.deleted)
+		.sort(
+			(a: any, b: any) =>
+				new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+		);
+	console.log("[collaborative.tsx] tasks to render:", tasks);
 	const renderTask = ({ item }: { item: any }) => {
 		const lockInfo = getEditLockInfo(item.id);
 
@@ -173,6 +176,8 @@ export default function CollaborativeTasksScreen() {
 					data={tasks}
 					renderItem={renderTask}
 					keyExtractor={(item) => item.id}
+					extraData={sharedState.tasks}
+					key={tasks.map((t) => t.id).join("-") + "-" + tasks.length}
 					className="flex-1"
 					showsVerticalScrollIndicator={false}
 					ListEmptyComponent={

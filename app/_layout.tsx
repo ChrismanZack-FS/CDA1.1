@@ -1,3 +1,7 @@
+if (typeof window !== "undefined" && __DEV__) {
+	window.localStorage = window.localStorage || {};
+	window.localStorage.debug = "socket.io-client:socket";
+}
 // app/_layout.tsx
 import { Stack } from "expo-router";
 import { useEffect, useState } from "react";

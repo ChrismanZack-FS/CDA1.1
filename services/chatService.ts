@@ -17,7 +17,7 @@ class ChatService {
 	private currentUserId: string | null = null;
 	private currentUserName: string | null = null;
 	private currentRoomId: string | null = null;
-	private typingTimeout: NodeJS.Timeout | null = null;
+	private typingTimeout: ReturnType<typeof setTimeout> | null = null;
 	// Event listeners
 	private messageListeners: ((message: ChatMessage) => void)[] = [];
 	private typingListeners: ((typingUser: TypingUser) => void)[] = [];
@@ -70,6 +70,7 @@ class ChatService {
 		});
 		// Handle typing indicators
 		socketService.on("user_typing", (data: TypingUser) => {
+			console.log("[chatService] Received user_typing event", data);
 			this.notifyTypingListeners(data);
 		});
 		// Handle message delivery confirmation
@@ -158,8 +159,15 @@ class ChatService {
 		});
 	}
 	startTyping(): void {
-		if (!this.currentRoomId || !this.currentUserId || !this.currentUserName)
+		if (!this.currentRoomId || !this.currentUserId || !this.currentUserName) {
+			console.log("[chatService] startTyping: missing room/user info");
 			return;
+		}
+		console.log("[chatService] Emitting typing_start", {
+			roomId: this.currentRoomId,
+			userId: this.currentUserId,
+			userName: this.currentUserName,
+		});
 		socketService.emit("typing_start", {
 			roomId: this.currentRoomId,
 			userId: this.currentUserId,
@@ -169,14 +177,21 @@ class ChatService {
 		if (this.typingTimeout) {
 			clearTimeout(this.typingTimeout);
 		}
-
-		//this.typingTimeout = setTimeout(() => {
-		//this.stopTyping();
-		//}, 3000);
+		this.typingTimeout = setTimeout(() => {
+			console.log("[chatService] Auto stopTyping after timeout");
+			this.stopTyping();
+		}, 3000);
 	}
 	stopTyping(): void {
-		if (!this.currentRoomId || !this.currentUserId || !this.currentUserName)
+		if (!this.currentRoomId || !this.currentUserId || !this.currentUserName) {
+			console.log("[chatService] stopTyping: missing room/user info");
 			return;
+		}
+		console.log("[chatService] Emitting typing_stop", {
+			roomId: this.currentRoomId,
+			userId: this.currentUserId,
+			userName: this.currentUserName,
+		});
 		socketService.emit("typing_stop", {
 			roomId: this.currentRoomId,
 			userId: this.currentUserId,

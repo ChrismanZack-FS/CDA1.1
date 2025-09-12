@@ -73,14 +73,20 @@ export const CollaborativeTaskItem: React.FC<CollaborativeTaskItemProps> = ({
 		await onUpdate(task.id, { completed: !task.completed });
 	};
 	const handleDelete = () => {
-		Alert.alert("Delete Task", "Are you sure you want to delete this task?", [
-			{ text: "Cancel", style: "cancel" },
-			{
-				text: "Delete",
-				style: "destructive",
-				onPress: () => onDelete(task.id),
-			},
-		]);
+		if (typeof window !== "undefined" && window.confirm) {
+			if (window.confirm("Are you sure you want to delete this task?")) {
+				onDelete(task.id);
+			}
+		} else {
+			Alert.alert("Delete Task", "Are you sure you want to delete this task?", [
+				{ text: "Cancel", style: "cancel" },
+				{
+					text: "Delete",
+					style: "destructive",
+					onPress: () => onDelete(task.id),
+				},
+			]);
+		}
 	};
 	const isModifiedByOther =
 		task.lastModifiedBy && task.lastModifiedBy !== currentUserId;

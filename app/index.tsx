@@ -1,3 +1,7 @@
+if (typeof window !== "undefined" && __DEV__) {
+	window.localStorage = window.localStorage || {};
+	window.localStorage.debug = "socket.io-client:socket";
+}
 import { Link, useFocusEffect, useNavigation } from "expo-router";
 import React, {
 	useCallback,
