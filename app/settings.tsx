@@ -51,8 +51,8 @@ export default function SettingsScreen() {
 			username,
 			theme,
 		});
-		// Navigate back to index and pass updated username
-		router.replace({ pathname: "/", params: { username } });
+
+		router.back();
 	};
 
 	return (

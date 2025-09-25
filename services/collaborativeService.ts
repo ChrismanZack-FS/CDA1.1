@@ -297,9 +297,13 @@ class CollaborativeService {
 	}
 	// Notify listeners of state change
 	private notifyStateListeners(): void {
+		const taskKeys =
+			this.localState && this.localState.tasks
+				? Object.keys(this.localState.tasks)
+				: [];
 		console.log(
 			"[collaborativeService] notifyStateListeners called. Current tasks:",
-			Object.keys(this.localState.tasks)
+			taskKeys
 		);
 		this.stateListeners.forEach((callback) => callback(this.localState));
 	}

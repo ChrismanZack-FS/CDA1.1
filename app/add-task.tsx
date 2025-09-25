@@ -53,7 +53,7 @@ export default function AddTaskScreen() {
 				updatedAt: now,
 			});
 
-			router.push("/"); // go back to task list
+			navigation.goBack(); // close modal and go back
 		} catch (err) {
 			console.error("Failed to save task:", err);
 			Alert.alert("Error", "Failed to save task");

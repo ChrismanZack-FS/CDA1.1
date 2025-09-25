@@ -1,7 +1,3 @@
-if (typeof window !== "undefined" && __DEV__) {
-	window.localStorage = window.localStorage || {};
-	window.localStorage.debug = "socket.io-client:socket";
-}
 import { Link, useFocusEffect, useNavigation } from "expo-router";
 import React, {
 	useCallback,
@@ -9,6 +5,7 @@ import React, {
 	useLayoutEffect,
 	useState,
 } from "react";
+import { designTokens } from "../theme/designTokens";
 
 import {
 	Alert,
@@ -20,7 +17,7 @@ import {
 	View,
 } from "react-native";
 import { ConnectionStatus } from "../components/ConnectionStatus";
-import { ThemedText } from "../components/ThemedText";
+
 import { Colors } from "../constants/Colors";
 import { useBreakpoint } from "../hooks/useBreakpoint";
 import { useSocket } from "../hooks/useSocket";
@@ -64,41 +61,77 @@ export default function TasksScreen() {
 	useLayoutEffect(() => {
 		navigation.setOptions({
 			headerStyle: {
-				backgroundColor: Colors[theme].background, // header background
+				backgroundColor:
+					theme === "dark"
+						? designTokens.colors.neutral[900]
+						: designTokens.colors.neutral[50],
 			},
-			headerTintColor: Colors[theme].text, // back button & title color
-			headerRight: () => (
-				<View style={{ flexDirection: "row", alignItems: "center" }}>
-					{/* Chat Link */}
-					<Link href="/chat" asChild>
-						<TouchableOpacity style={{ marginRight: 15 }}>
-							<Text style={{ fontSize: 22, color: Colors[theme].text }}>
-								💬
-							</Text>
-						</TouchableOpacity>
-					</Link>
+			headerTintColor:
+				theme === "dark"
+					? designTokens.colors.neutral[50]
+					: designTokens.colors.neutral[900],
+			headerRight:
+				breakpoint === "sm" || breakpoint === "md"
+					? undefined
+					: () => (
+							<View style={{ flexDirection: "row", alignItems: "center" }}>
+								{/* Chat Link */}
+								<TouchableOpacity
+									style={{ marginRight: 15 }}
+									onPress={() => navigation.navigate("Chat")}
+								>
+									<Text
+										style={{
+											fontSize: 22,
+											color:
+												theme === "dark"
+													? designTokens.colors.neutral[50]
+													: designTokens.colors.neutral[900],
+										}}
+									>
+										💬
+									</Text>
+								</TouchableOpacity>
 
-					{/* Collaborative Link */}
-					<Link href="/collaborative" asChild>
-						<TouchableOpacity style={{ marginRight: 15 }}>
-							<Text style={{ fontSize: 22, color: Colors[theme].text }}>
-								🤝
-							</Text>
-						</TouchableOpacity>
-					</Link>
+								{/* Collaborative Link */}
+								<TouchableOpacity
+									style={{ marginRight: 15 }}
+									onPress={() => navigation.navigate("Collaborative")}
+								>
+									<Text
+										style={{
+											fontSize: 22,
+											color:
+												theme === "dark"
+													? designTokens.colors.neutral[50]
+													: designTokens.colors.neutral[900],
+										}}
+									>
+										🤝
+									</Text>
+								</TouchableOpacity>
 
-					{/* Settings Link */}
-					<Link href="/settings" asChild>
-						<TouchableOpacity style={{ marginRight: 15 }}>
-							<Text style={{ fontSize: 22, color: Colors[theme].text }}>
-								⚙️
-							</Text>
-						</TouchableOpacity>
-					</Link>
-				</View>
-			),
+								{/* Settings Link */}
+								<TouchableOpacity
+									style={{ marginRight: 15 }}
+									onPress={() => navigation.navigate("Settings")}
+								>
+									<Text
+										style={{
+											fontSize: 22,
+											color:
+												theme === "dark"
+													? designTokens.colors.neutral[50]
+													: designTokens.colors.neutral[900],
+										}}
+									>
+										⚙️
+									</Text>
+								</TouchableOpacity>
+							</View>
+						),
 		});
-	}, [navigation, theme]);
+	}, [navigation, theme, breakpoint]);
 
 	const handleToggleComplete = async (id: number, completed: boolean) => {
 		try {
@@ -164,7 +197,7 @@ export default function TasksScreen() {
 	const getNumColumns = () => {
 		switch (breakpoint) {
 			case "xl":
-				return 3;
+				return 2;
 			case "lg":
 				return 2;
 			default:
@@ -178,7 +211,9 @@ export default function TasksScreen() {
 				styles.taskItem,
 				{
 					backgroundColor:
-						theme === "dark" ? "#1F2937" : Colors[theme].background,
+						theme === "dark"
+							? designTokens.colors.neutral[900]
+							: designTokens.colors.neutral[50],
 				},
 			]}
 		>
@@ -186,30 +221,47 @@ export default function TasksScreen() {
 				onPress={() => handleToggleComplete(item.id, item.completed)}
 				style={{ flex: 1 }}
 			>
-				<ThemedText
-					type="defaultSemiBold"
+				<Text
 					style={{
 						flex: 1,
 						textDecorationLine: item.completed ? "line-through" : "none",
-						color: item.completed ? Colors[theme].icon : Colors[theme].text,
+						color: item.completed
+							? designTokens.colors.neutral[500]
+							: theme === "dark"
+								? designTokens.colors.neutral[50]
+								: designTokens.colors.neutral[900],
+						fontWeight: "600",
+						fontSize: designTokens.typography.fontSize.lg,
+						marginBottom: 2,
 					}}
 				>
 					{item.title}
-				</ThemedText>
-				<ThemedText
-					type="default"
-					style={{ color: Colors[theme].icon, marginBottom: 8 }}
+				</Text>
+				<Text
+					style={{
+						color:
+							theme === "dark"
+								? designTokens.colors.neutral[100]
+								: designTokens.colors.neutral[500],
+						marginBottom: 8,
+						fontSize: designTokens.typography.fontSize.base,
+					}}
 				>
 					{item.description}
-				</ThemedText>
-				<ThemedText
-					type="default"
-					style={{ color: Colors[theme].icon, marginBottom: 8 }}
+				</Text>
+				<Text
+					style={{
+						color:
+							theme === "dark"
+								? designTokens.colors.neutral[100]
+								: designTokens.colors.neutral[500],
+						marginBottom: 8,
+						fontSize: designTokens.typography.fontSize.sm,
+					}}
 				>
 					{new Date(item.createdAt).toLocaleDateString()}
-				</ThemedText>
-				<ThemedText
-					type="default"
+				</Text>
+				<Text
 					style={{
 						fontSize: 14,
 						fontWeight: "500",
@@ -218,33 +270,27 @@ export default function TasksScreen() {
 					}}
 				>
 					{item.priority}
-				</ThemedText>
+				</Text>
 			</TouchableOpacity>
 
 			<View style={styles.taskActions}>
 				{/* Edit button */}
-				<Link
-					href={{
-						pathname: "/edit-task",
-						params: { id: item.id },
-					}}
-					asChild
+				<TouchableOpacity
+					style={{ padding: 4 }}
+					onPress={() => navigation.navigate("EditTask", { id: item.id })}
 				>
-					<TouchableOpacity style={{ padding: 4 }}>
-						<Text style={{ flex: 1 }}>✏️</Text>
-					</TouchableOpacity>
-				</Link>
-
-				<View style={styles.taskActions}>
-					<TouchableOpacity
-						onPress={() => handleDeleteTask(item.id)}
-						activeOpacity={0.6}
-						style={{ padding: 4 }}
-					>
-						<Text style={styles.deleteButton}>🗑️</Text>
-					</TouchableOpacity>
-					<Text style={styles.taskStatus}>{item.completed ? "✅" : "⭕"}</Text>
-				</View>
+					<Text>✏️</Text>
+				</TouchableOpacity>
+				{/* Delete button */}
+				<TouchableOpacity
+					onPress={() => handleDeleteTask(item.id)}
+					activeOpacity={0.6}
+					style={{ padding: 4 }}
+				>
+					<Text style={styles.deleteButton}>🗑️</Text>
+				</TouchableOpacity>
+				{/* Status icon */}
+				<Text style={styles.taskStatus}>{item.completed ? "✅" : "⭕"}</Text>
 			</View>
 		</View>
 	);
@@ -306,11 +352,12 @@ export default function TasksScreen() {
 				</Text>
 			)}
 
-			<Link href="/add-task" asChild>
-				<TouchableOpacity style={styles.addButton}>
-					<Text style={styles.addButtonText}>+ Add Task</Text>
-				</TouchableOpacity>
-			</Link>
+			<TouchableOpacity
+				style={styles.addButton}
+				onPress={() => navigation.navigate("AddTask")}
+			>
+				<Text style={styles.addButtonText}>+ Add Task</Text>
+			</TouchableOpacity>
 		</View>
 	);
 }

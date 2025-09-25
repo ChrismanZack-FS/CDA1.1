@@ -1,9 +1,10 @@
+import { ThemeProvider } from "../theme/ThemeProvider";
 if (typeof window !== "undefined" && __DEV__) {
 	window.localStorage = window.localStorage || {};
 	window.localStorage.debug = "socket.io-client:socket";
 }
 // app/_layout.tsx
-import { Stack } from "expo-router";
+import { PlatformNavigator } from "../navigation/PlatformNavigator";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import { TasksProvider } from "../context/TasksContext";
@@ -35,18 +36,10 @@ export default function RootLayout() {
 	}
 
 	return (
-		<TasksProvider>
-			<Stack>
-				<Stack.Screen name="index" options={{ title: "Tasks" }} />
-				<Stack.Screen name="add-task" options={{ title: "Add Task" }} />
-				<Stack.Screen name="edit-task" options={{ title: "Edit Task" }} />
-				<Stack.Screen name="settings" options={{ title: "Settings" }} />
-				<Stack.Screen name="chat" options={{ title: "Chat" }} />
-				<Stack.Screen
-					name="collaborative"
-					options={{ title: "Collaborative" }}
-				/>
-			</Stack>
-		</TasksProvider>
+		<ThemeProvider>
+			<TasksProvider>
+				<PlatformNavigator />
+			</TasksProvider>
+		</ThemeProvider>
 	);
 }
